@@ -1,0 +1,15 @@
+[project]
+name = "datasetdna"
+version = "0.1.0"
+description = "One-command dataset profiling and health analysis"
+requires-python = ">=3.10"
+dependencies = [
+    "pandas",
+    "numpy",
+    "scipy",
+    "rich",
+    "typer"
+]
+
+[project.scripts]
+datasetdna = "datasetdna.cli:app"
