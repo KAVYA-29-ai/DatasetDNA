@@ -1,0 +1,6 @@
+age,salary,department,churn
+22,35000,IT,No
+25,42000,HR,No
+31,,IT,Yes
+45,80000,Finance,No
+29,50000,IT,Yes
