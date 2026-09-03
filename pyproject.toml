@@ -1,15 +1,59 @@
+[build-system]
+requires = [
+    "setuptools>=68",
+    "wheel",
+]
+build-backend = "setuptools.build_meta"
+
+
 [project]
 name = "datasetdna"
 version = "0.1.0"
 description = "One-command dataset profiling and health analysis"
+readme = "README.md"
 requires-python = ">=3.10"
+
+authors = [
+    { name = "Kavya Rajput" }
+]
+
+license = "MIT"
+license-files = ["LICENSE"]
+
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Operating System :: OS Independent",
+]
+
 dependencies = [
     "pandas",
     "numpy",
     "scipy",
     "rich",
-    "typer"
+    "typer",
+    "plotly",
 ]
+
+
+[project.urls]
+Homepage = "https://github.com/KAVYA-29-ai/DatasetDNA"
+Repository = "https://github.com/KAVYA-29-ai/DatasetDNA"
+Issues = "https://github.com/KAVYA-29-ai/DatasetDNA/issues"
+
 
 [project.scripts]
 datasetdna = "datasetdna.cli:app"
+
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["datasetdna*"]

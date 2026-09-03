@@ -1,0 +1,21 @@
+customer_id,name,age,city,signup_date,salary,purchase_amount,is_active,category,email
+1001,Rahul Sharma,28,Delhi,2023-01-15,45000,"1,200",Yes,Electronics,rahul@email.com
+1002,Priya Singh,34,Mumbai,2023-02-20,62000,"3,500",Yes,Fashion,priya@email.com
+1003,Amit Kumar,,Bangalore,2023-01-30,N/A,850,No,Electronics,amit@email.com
+1004,Sneha Patel,29,Delhi,2023-03-05,"$55,000","2,100",Yes,Fashion,sneha@email.com
+1005,Vikram Rao,45,Chennai,2023-02-14,78000,unknown,Yes,Grocery,vikram@email.com
+1006,Anita Desai,31,Mumbai,15/03/2023,51000,"1,800",No,Electronics,anita@email.com
+1007,Rajesh Gupta,-5,Pune,2023-04-01,49000,950,Yes,Fashion,rajesh@email.com
+1008,Kavita Joshi,38,Delhi,2023-01-22,,"4,200",Yes,Grocery,kavita@email.com
+1009,Suresh Nair,27,?,2023-03-18,53000,1100,No,Electronics,suresh@email.com
+1010,Meena Iyer,33,Chennai,2023-02-28,60000,"2,900",Yes,Fashion,meena@email.com
+1011,Arjun Reddy,29,Bangalore,2023-01-10,58000,750,Yes,Electronics,arjun@email.com
+1012,Pooja Mehta,150,Mumbai,2023-04-12,999999,"5,600",No,Grocery,pooja@email.com
+1013,Rahul Sharma,28,Delhi,2023-01-15,45000,"1,200",Yes,Electronics,rahul@email.com
+1014,Deepak Verma,26,Pune,2023-03-25,-,1300,Yes,Fashion,deepak@email.com
+1015,Sunita Rao,41,Chennai,2023-02-08,65000,"1,950",No,Electronics,sunita@email.com
+1016,Manoj Tiwari,null,Delhi,2023-01-19,47000,890,Yes,Grocery,manoj@email.com
+1017,Ritu Bansal,35,Bangalore,2023-03-30,59000,"3,100",Yes,Fashion,ritu@email.com
+1018,Sanjay Yadav,32,Mumbai,2023-02-17,54000,1050,No,Electronics,sanjay@email.com
+1019,Neha Kapoor,30,Chennai,2023-04-05,56000,"2,300",Yes,Grocery,neha@email.com
+1020,Vivek Malhotra,37,Pune,2023-01-27,61000,1400,Yes,Fashion,vivek@email.com

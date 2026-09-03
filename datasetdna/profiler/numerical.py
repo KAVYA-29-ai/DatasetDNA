@@ -1,22 +1,36 @@
+from __future__ import annotations
+
 import pandas as pd
 
+from datasetdna.profiler.types import check_types
 
-def check_numerical(df: pd.DataFrame) -> dict:
+
+def check_numerical(
+    df: pd.DataFrame,
+) -> dict:
     """
-    Analyze all numerical columns in the dataset.
+    Analyze numerical columns while excluding columns
+    detected as identifiers.
 
-    Returns:
-        dict: Statistical information for each numerical column.
+    Identifier columns such as customer_id should not be
+    treated as meaningful numerical features.
     """
 
     result = {}
 
-    numerical_df = df.select_dtypes(include="number")
+    types = check_types(df)
 
-    for column in numerical_df.columns:
-        series = numerical_df[column].dropna()
+    for column in df.columns:
+
+        column_type = types[column]
+
+        if column_type["detected_type"] != "numeric":
+            continue
+
+        series = df[column].dropna()
 
         if series.empty:
+
             result[column] = {
                 "count": 0,
                 "mean": None,
@@ -26,20 +40,41 @@ def check_numerical(df: pd.DataFrame) -> dict:
                 "max": None,
                 "skewness": None,
             }
+
             continue
 
         skewness = series.skew()
 
         result[column] = {
             "count": int(series.count()),
-            "mean": round(float(series.mean()), 4),
-            "median": round(float(series.median()), 4),
-            "std": round(float(series.std()), 4),
-            "min": round(float(series.min()), 4),
-            "max": round(float(series.max()), 4),
-            "skewness": round(float(skewness), 4)
-            if pd.notna(skewness)
-            else None,
+            "mean": round(
+                float(series.mean()),
+                4,
+            ),
+            "median": round(
+                float(series.median()),
+                4,
+            ),
+            "std": round(
+                float(series.std()),
+                4,
+            ),
+            "min": round(
+                float(series.min()),
+                4,
+            ),
+            "max": round(
+                float(series.max()),
+                4,
+            ),
+            "skewness": (
+                round(
+                    float(skewness),
+                    4,
+                )
+                if pd.notna(skewness)
+                else None
+            ),
         }
 
     return result
