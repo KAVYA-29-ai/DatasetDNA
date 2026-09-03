@@ -42,13 +42,13 @@ Loader + Cleaning        → handles $1,200 / "1,234" / N/A / null / "?" / "-" a
  ↓
 Semantic Type Detection  → tells an ID column from a real feature, a date from a category
  ↓
-┌───────────────────────────┐
-│ Overview        Numerical │
-│ Schema          Categorical│
-│ Missingness     Outliers  │
+┌─────────────────────────────┐
+│ Overview        Numerical   │
+│ Schema          Categorical │
+│ Missingness     Outliers    │
 │ Duplicates      Correlations│
-│ Cardinality     Target    │
-└───────────────────────────┘
+│ Cardinality     Target      │
+└─────────────────────────────┘
  ↓
 Health Scoring   → 0–100, driven only by real quality issues
  ↓
