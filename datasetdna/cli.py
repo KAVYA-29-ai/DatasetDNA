@@ -1,73 +1,124 @@
 import pandas as pd
 import typer
-from rich.console import Console
-from rich.table import Table
 
 from datasetdna.profiler.overview import check_overview
 from datasetdna.profiler.schema import check_schema
 from datasetdna.profiler.missing import check_missing
+from datasetdna.profiler.duplicates import check_duplicates
+from datasetdna.profiler.cardinality import check_cardinality
+from datasetdna.profiler.numerical import check_numerical
+from datasetdna.profiler.categorical import check_categorical
+from datasetdna.profiler.outliers import check_outliers
+from datasetdna.profiler.target import check_target
+from datasetdna.profiler.correlations import check_correlations
 
-app = typer.Typer()
-console = Console()
+from datasetdna.scoring.health_score import calculate_health_score
+
+from datasetdna.reporting.console import render_report
+
+
+app = typer.Typer(
+    help="DatasetDNA - Automated Dataset Health Profiler",
+    add_completion=False,
+)
 
 
 @app.command()
 def profile(
-    file: str,
-    target: str = typer.Option(None, "--target")
+    file: str = typer.Argument(
+        ...,
+        help="Path to the CSV dataset.",
+    ),
+    target: str | None = typer.Option(
+        None,
+        "--target",
+        "-t",
+        help="Target column for target analysis.",
+    ),
 ):
-    """Profile a CSV dataset."""
+    """
+    Profile a CSV dataset and generate a DatasetDNA health report.
+    """
+
+    # =========================================================
+    # LOAD DATASET
+    # =========================================================
 
     try:
         df = pd.read_csv(file)
-    except Exception as e:
-        console.print(f"[red]Error:[/red] {e}")
+
+    except FileNotFoundError:
+        print(f"Error: File not found: {file}")
         raise typer.Exit(code=1)
 
+    except pd.errors.EmptyDataError:
+        print("Error: The CSV file is empty.")
+        raise typer.Exit(code=1)
+
+    except Exception as exc:
+        print(f"Error loading dataset: {exc}")
+        raise typer.Exit(code=1)
+
+    # =========================================================
+    # RUN PROFILERS
+    # =========================================================
+
     overview = check_overview(df)
+
     schema = check_schema(df)
+
     missing = check_missing(df)
 
-    console.print("\n[bold cyan]🧬 DatasetDNA[/bold cyan]")
-    console.print("[bold]Dataset Health Report[/bold]\n")
+    duplicates = check_duplicates(df)
 
-    table = Table(title="Dataset Overview")
+    cardinality = check_cardinality(df)
 
-    table.add_column("Metric")
-    table.add_column("Value")
+    numerical = check_numerical(df)
 
-    table.add_row("Rows", str(overview["rows"]))
-    table.add_row("Columns", str(overview["columns"]))
-    table.add_row("Memory", f'{overview["memory_usage_mb"]} MB')
-    table.add_row(
-        "Missing Cells",
-        str(missing["total_missing_cells"])
+    categorical = check_categorical(df)
+
+    outliers = check_outliers(df)
+
+    correlations = check_correlations(df)
+
+    target_result = check_target(
+        df,
+        target,
     )
 
-    console.print(table)
+    # =========================================================
+    # COLLECT RAW RESULTS
+    # =========================================================
 
-    console.print("\n[bold]Schema[/bold]")
+    results = {
+        "overview": overview,
+        "schema": schema,
+        "missing": missing,
+        "duplicates": duplicates,
+        "cardinality": cardinality,
+        "numerical": numerical,
+        "categorical": categorical,
+        "outliers": outliers,
+        "correlations": correlations,
+        "target": target_result,
+    }
 
-    schema_table = Table()
+    # =========================================================
+    # CALCULATE HEALTH SCORE
+    # =========================================================
 
-    schema_table.add_column("Column")
-    schema_table.add_column("Data Type")
+    health = calculate_health_score(
+        results
+    )
 
-    for column, dtype in schema.items():
-        schema_table.add_row(column, dtype)
+    # =========================================================
+    # RENDER REPORT
+    # =========================================================
 
-    console.print(schema_table)
-
-    if target:
-        if target not in df.columns:
-            console.print(
-                f"[red]Target column '{target}' not found.[/red]"
-            )
-            raise typer.Exit(code=1)
-
-        console.print(
-            f"\n[bold yellow]Target:[/bold yellow] {target}"
-        )
+    render_report(
+        results,
+        health,
+    )
 
 
 if __name__ == "__main__":

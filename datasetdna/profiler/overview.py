@@ -2,6 +2,10 @@ import pandas as pd
 
 
 def check_overview(df: pd.DataFrame) -> dict:
+    """
+    Generate basic information about the dataset.
+    """
+
     return {
         "rows": len(df),
         "columns": len(df.columns),
