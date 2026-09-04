@@ -9,11 +9,13 @@ def check_numerical(
     df: pd.DataFrame,
 ) -> dict:
     """
-    Analyze numerical columns while excluding columns
-    detected as identifiers.
+    Analyze meaningful numerical columns.
 
-    Identifier columns such as customer_id should not be
-    treated as meaningful numerical features.
+    Binary numeric columns containing only 0/1 values are excluded
+    because they behave like categorical flags rather than continuous
+    numerical features.
+
+    Identifier columns are also excluded based on type detection.
     """
 
     result = {}
@@ -27,10 +29,16 @@ def check_numerical(
         if column_type["detected_type"] != "numeric":
             continue
 
+        # Binary numeric columns (0/1) are categorical flags,
+        # not meaningful continuous numerical features.
+        unique_values = df[column].dropna().unique()
+
+        if len(unique_values) <= 2 and set(unique_values).issubset({0, 1}):
+            continue
+
         series = df[column].dropna()
 
         if series.empty:
-
             result[column] = {
                 "count": 0,
                 "mean": None,

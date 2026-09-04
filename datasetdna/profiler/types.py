@@ -1,20 +1,13 @@
 from __future__ import annotations
 
+import re
+
 import pandas as pd
 
-
-# =============================================================
-# CONFIGURATION
-# =============================================================
 
 DATE_THRESHOLD = 0.90
 BOOLEAN_THRESHOLD = 0.90
 ID_THRESHOLD = 0.95
-
-
-# =============================================================
-# BOOLEAN VALUES
-# =============================================================
 
 BOOLEAN_VALUES = {
     "yes",
@@ -27,47 +20,61 @@ BOOLEAN_VALUES = {
     "f",
 }
 
+DATE_PATTERNS = [
+    re.compile(r"^\d{4}[-/]\d{1,2}[-/]\d{1,2}$"),
+    re.compile(r"^\d{1,2}[-/]\d{1,2}[-/]\d{2,4}$"),
+    re.compile(r"^\d{4}[-/]\d{1,2}$"),
+    re.compile(r"^[A-Za-z]{3,9}\s+\d{1,2},?\s+\d{4}$"),
+    re.compile(r"^\d{1,2}\s+[A-Za-z]{3,9}\s+\d{4}$"),
+]
 
-# =============================================================
-# DATE DETECTION
-# =============================================================
 
-def _parse_date_rate(
-    series: pd.Series,
-) -> float:
+def _looks_like_date(value: object) -> bool:
     """
-    Calculate the percentage of non-null values
-    that can be parsed as dates.
-    """
+    Return True when a value resembles a common date format.
 
+    This prevents arbitrary text such as '3 A.M.' from being
+    passed to pandas' date parser.
+    """
+    text = str(value).strip()
+
+    if not text:
+        return False
+
+    return any(pattern.match(text) for pattern in DATE_PATTERNS)
+
+
+def _parse_date_rate(series: pd.Series) -> float:
+    """
+    Estimate how strongly a string/object column represents dates.
+
+    Only values matching known date-like patterns are sent to
+    pandas' date parser. This avoids parsing arbitrary text such
+    as '3 A.M.' as a datetime/timezone expression.
+    """
     values = series.dropna()
 
     if values.empty:
         return 0.0
 
+    candidate_mask = values.map(_looks_like_date)
+    candidates = values[candidate_mask]
+
+    if candidates.empty:
+        return 0.0
+
     parsed = pd.to_datetime(
-        values,
+        candidates,
         errors="coerce",
         format="mixed",
     )
 
-    return float(
-        parsed.notna().mean()
+    return float(parsed.notna().mean()) * (
+        len(candidates) / len(values)
     )
 
 
-# =============================================================
-# BOOLEAN DETECTION
-# =============================================================
-
-def _parse_boolean_rate(
-    series: pd.Series,
-) -> float:
-    """
-    Calculate the percentage of non-null values
-    that look like boolean values.
-    """
-
+def _parse_boolean_rate(series: pd.Series) -> float:
     values = series.dropna()
 
     if values.empty:
@@ -80,24 +87,11 @@ def _parse_boolean_rate(
     )
 
     return float(
-        normalized.isin(
-            BOOLEAN_VALUES
-        ).mean()
+        normalized.isin(BOOLEAN_VALUES).mean()
     )
 
 
-# =============================================================
-# IDENTIFIER DETECTION
-# =============================================================
-
-def _is_id_name(
-    column: str,
-) -> bool:
-    """
-    Detect whether a column name strongly suggests
-    that the column represents an identifier.
-    """
-
+def _is_id_name(column: str) -> bool:
     name = column.strip().lower()
 
     return (
@@ -116,41 +110,11 @@ def _is_id_name(
     )
 
 
-# =============================================================
-# COLUMN TYPE DETECTION
-# =============================================================
-
-def detect_column_type(
-    series: pd.Series,
-) -> dict:
-    """
-    Detect the semantic type of a single column.
-
-    Possible detected types:
-
-        numeric
-        categorical
-        date
-        boolean
-        id
-        empty
-
-    The function also provides confidence and
-    supporting detection statistics.
-    """
-
-    column = str(
-        series.name
-    )
-
+def detect_column_type(series: pd.Series) -> dict:
+    column = str(series.name)
     values = series.dropna()
 
-    # ---------------------------------------------------------
-    # EMPTY COLUMN
-    # ---------------------------------------------------------
-
     if values.empty:
-
         return {
             "column": column,
             "detected_type": "empty",
@@ -158,23 +122,9 @@ def detect_column_type(
             "is_id_like": False,
         }
 
-    # ---------------------------------------------------------
-    # CARDINALITY
-    # ---------------------------------------------------------
+    unique_percentage = values.nunique() / len(values)
 
-    unique_percentage = (
-        values.nunique()
-        / len(values)
-    )
-
-    # ---------------------------------------------------------
-    # NATIVE NUMERIC
-    # ---------------------------------------------------------
-
-    if pd.api.types.is_numeric_dtype(
-        series
-    ):
-
+    if pd.api.types.is_numeric_dtype(series):
         is_id = (
             unique_percentage >= ID_THRESHOLD
             and _is_id_name(column)
@@ -182,11 +132,7 @@ def detect_column_type(
 
         return {
             "column": column,
-            "detected_type": (
-                "id"
-                if is_id
-                else "numeric"
-            ),
+            "detected_type": "id" if is_id else "numeric",
             "confidence": 1.0,
             "is_id_like": is_id,
             "unique_percentage": round(
@@ -195,14 +141,7 @@ def detect_column_type(
             ),
         }
 
-    # ---------------------------------------------------------
-    # NATIVE BOOLEAN
-    # ---------------------------------------------------------
-
-    if pd.api.types.is_bool_dtype(
-        series
-    ):
-
+    if pd.api.types.is_bool_dtype(series):
         return {
             "column": column,
             "detected_type": "boolean",
@@ -214,72 +153,34 @@ def detect_column_type(
             ),
         }
 
-    # ---------------------------------------------------------
-    # STRING-LIKE ANALYSIS
-    # ---------------------------------------------------------
-
-    date_rate = _parse_date_rate(
-        series
-    )
-
-    boolean_rate = _parse_boolean_rate(
-        series
-    )
-
-    # ---------------------------------------------------------
-    # ID DETECTION
-    # ---------------------------------------------------------
+    date_rate = _parse_date_rate(series)
+    boolean_rate = _parse_boolean_rate(series)
 
     id_like = (
         unique_percentage >= ID_THRESHOLD
         and _is_id_name(column)
     )
 
-    # ---------------------------------------------------------
-    # TYPE DECISION
-    # ---------------------------------------------------------
-
     if id_like:
-
         detected_type = "id"
-
-        confidence = (
-            unique_percentage
-        )
+        confidence = unique_percentage
 
     elif boolean_rate >= BOOLEAN_THRESHOLD:
-
         detected_type = "boolean"
-
-        confidence = (
-            boolean_rate
-        )
+        confidence = boolean_rate
 
     elif date_rate >= DATE_THRESHOLD:
-
         detected_type = "date"
-
-        confidence = (
-            date_rate
-        )
+        confidence = date_rate
 
     else:
-
         detected_type = "categorical"
-
         confidence = 1.0
-
-    # ---------------------------------------------------------
-    # RESULT
-    # ---------------------------------------------------------
 
     return {
         "column": column,
         "detected_type": detected_type,
-        "confidence": round(
-            float(confidence),
-            4,
-        ),
+        "confidence": round(float(confidence), 4),
         "is_id_like": id_like,
         "unique_percentage": round(
             float(unique_percentage),
@@ -296,28 +197,8 @@ def detect_column_type(
     }
 
 
-# =============================================================
-# DATAFRAME TYPE PROFILER
-# =============================================================
-
-def check_types(
-    df: pd.DataFrame,
-) -> dict:
-    """
-    Detect the type of every column in a DataFrame.
-
-    Returns:
-
-        {
-            "column_name": {
-                ...
-            }
-        }
-    """
-
+def check_types(df: pd.DataFrame) -> dict:
     return {
-        column: detect_column_type(
-            df[column]
-        )
+        column: detect_column_type(df[column])
         for column in df.columns
     }

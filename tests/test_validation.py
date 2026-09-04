@@ -759,3 +759,30 @@ def test_invalid_values_reduce_data_quality_score():
     score = calculate_data_quality_score(results)
 
     assert score < 100
+
+def test_time_like_text_does_not_trigger_date_parsing_warning():
+    import warnings
+
+    df = pd.DataFrame({
+        "time_label": [
+            "3 A.M.",
+            "5 A.M.",
+            "7 P.M.",
+            "10 P.M.",
+        ]
+    })
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+
+        result = check_types(df)
+
+    assert result["time_label"]["detected_type"] == "categorical"
+
+    future_warnings = [
+        warning
+        for warning in caught
+        if issubclass(warning.category, FutureWarning)
+    ]
+
+    assert not future_warnings

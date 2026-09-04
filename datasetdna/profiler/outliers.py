@@ -13,6 +13,44 @@ IQR_MULTIPLIER = 1.5
 
 
 # =============================================================
+# DOMAIN HELPERS
+# =============================================================
+
+NON_NEGATIVE_KEYWORDS = (
+    "amount",
+    "count",
+    "quantity",
+    "price",
+    "cost",
+    "income",
+    "salary",
+    "balance",
+    "distance",
+    "duration",
+)
+
+
+def _has_non_negative_domain(column: str) -> bool:
+    column_lower = column.lower()
+
+    # Age-like columns
+    if (
+        column_lower == "age"
+        or column_lower.endswith("_age")
+        or column_lower.startswith("age_")
+    ):
+        return True
+
+    # Explicit non-negative quantities
+    return any(
+        keyword == column_lower
+        or column_lower.startswith(f"{keyword}_")
+        or column_lower.endswith(f"_{keyword}")
+        for keyword in NON_NEGATIVE_KEYWORDS
+    )
+
+
+# =============================================================
 # OUTLIER PROFILER
 # =============================================================
 
@@ -22,14 +60,13 @@ def check_outliers(
     """
     Detect statistical outliers in meaningful numerical columns.
 
+    Binary numeric columns containing only 0/1 values are excluded
+    because they behave like categorical flags.
+
+    Domain-aware lower bounds are applied to quantities that cannot
+    logically be negative, such as age, count, price, income, etc.
+
     Columns detected as identifiers are excluded automatically.
-
-    Example:
-
-        customer_id      -> excluded
-        age              -> analyzed
-        salary           -> analyzed
-        purchase_amount  -> analyzed
     """
 
     result = {}
@@ -42,6 +79,13 @@ def check_outliers(
 
         # Only analyze columns classified as numeric.
         if column_type["detected_type"] != "numeric":
+            continue
+
+        # Binary numeric columns (0/1) are categorical flags,
+        # not meaningful continuous numerical features.
+        unique_values = df[column].dropna().unique()
+
+        if len(unique_values) <= 2 and set(unique_values).issubset({0, 1}):
             continue
 
         series = df[column].dropna()
@@ -85,6 +129,16 @@ def check_outliers(
                 * iqr
             )
         )
+
+        # -----------------------------------------------------
+        # Domain-aware lower bound
+        # -----------------------------------------------------
+
+        if _has_non_negative_domain(column):
+            lower_bound = max(
+                0.0,
+                float(lower_bound),
+            )
 
         # -----------------------------------------------------
         # Detect outliers

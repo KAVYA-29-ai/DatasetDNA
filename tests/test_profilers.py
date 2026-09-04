@@ -810,3 +810,100 @@ def test_target_with_nonexistent_column_returns_target_metadata():
 
     assert result["provided"] is True
     assert result["column"] == "target"
+
+
+# ============================================================
+# TARGET TASK DETECTION
+# ============================================================
+
+def test_numeric_target_with_many_unique_values_is_regression():
+    df = pd.DataFrame({
+        "track_popularity": list(range(100))
+    })
+
+    result = check_target(
+        df,
+        target="track_popularity",
+    )
+
+    # Semantic type remains numeric.
+    assert result["type"] == "numeric"
+
+    # ML task is regression.
+    assert result["task_type"] == "regression"
+
+    # Classification metadata must not be generated.
+    assert result["class_count"] is None
+    assert result["classes"] is None
+    assert result["class_distribution"] == {}
+    assert result["imbalance_ratio"] is None
+
+
+def test_numeric_target_with_few_unique_values_is_classification():
+    df = pd.DataFrame({
+        "rating": [
+            1,
+            2,
+            3,
+            1,
+            2,
+            3,
+            1,
+            2,
+        ]
+    })
+
+    result = check_target(
+        df,
+        target="rating",
+    )
+
+    # Semantic type remains numeric.
+    assert result["type"] == "numeric"
+
+    # Small discrete numeric target is classification.
+    assert result["task_type"] == "classification"
+
+    assert result["class_count"] == 3
+    assert result["classes"] == 3
+    assert result["imbalance_ratio"] is not None
+
+
+def test_regression_target_does_not_calculate_fake_imbalance():
+    df = pd.DataFrame({
+        "score": list(range(1, 101))
+    })
+
+    result = check_target(
+        df,
+        target="score",
+    )
+
+    assert result["type"] == "numeric"
+    assert result["task_type"] == "regression"
+
+    # Regression must never receive class imbalance analysis.
+    assert result["imbalance_ratio"] is None
+    assert result["class_distribution"] == {}
+    assert result["class_count"] is None
+    assert result["classes"] is None
+
+
+def test_numeric_target_with_exactly_20_unique_values_is_classification():
+    df = pd.DataFrame({
+        "target": list(range(20))
+    })
+
+    result = check_target(
+        df,
+        target="target",
+    )
+
+    assert result["type"] == "numeric"
+
+    # Boundary condition:
+    # 20 unique numeric values -> classification.
+    assert result["task_type"] == "classification"
+
+    assert result["class_count"] == 20
+    assert result["classes"] == 20

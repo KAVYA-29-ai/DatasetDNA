@@ -9,11 +9,17 @@ def check_categorical(
     df: pd.DataFrame,
 ) -> dict:
     """
-    Analyze columns detected as categorical.
+    Analyze categorical columns and binary numeric columns.
+
+    Columns detected as:
+        - categorical
+        - binary numeric (0/1)
+
+    are analyzed.
 
     Columns detected as:
         - id
-        - numeric
+        - numeric (non-binary)
         - date
         - boolean
         - empty
@@ -27,14 +33,29 @@ def check_categorical(
 
     for column in df.columns:
 
+        detected_type = types[column]["detected_type"]
+
         # -----------------------------------------------------
-        # Only analyze semantic categorical columns
+        # Determine whether column should be analyzed
         # -----------------------------------------------------
 
-        if (
-            types[column]["detected_type"]
-            != "categorical"
-        ):
+        if detected_type == "categorical":
+            should_analyze = True
+
+        elif detected_type == "numeric":
+            # Binary numeric columns such as 0/1 behave like
+            # categorical flags and should have frequency analysis.
+            unique_values = df[column].dropna().unique()
+
+            should_analyze = (
+                len(unique_values) <= 2
+                and set(unique_values).issubset({0, 1})
+            )
+
+        else:
+            should_analyze = False
+
+        if not should_analyze:
             continue
 
         series = df[column].dropna()
@@ -59,9 +80,7 @@ def check_categorical(
 
         value_counts = series.value_counts()
 
-        total_values = len(
-            series
-        )
+        total_values = len(series)
 
         categories = {}
 

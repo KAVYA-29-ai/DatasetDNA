@@ -40,6 +40,50 @@ app = typer.Typer(
 )
 
 
+# =============================================================
+# TARGET INFERENCE
+# =============================================================
+
+TARGET_COLUMN_CANDIDATES = (
+    "target",
+    "label",
+    "churn",
+)
+
+
+def infer_target(
+    df,
+) -> tuple[str | None, bool]:
+    """
+    Infer a target column when the user does not provide one.
+
+    Priority:
+        target -> label -> churn
+
+    Returns:
+        (column_name, inferred)
+    """
+
+    normalized_columns = {
+        column.strip().lower(): column
+        for column in df.columns
+    }
+
+    for candidate in TARGET_COLUMN_CANDIDATES:
+
+        if candidate in normalized_columns:
+            return (
+                normalized_columns[candidate],
+                True,
+            )
+
+    return None, False
+
+
+# =============================================================
+# CLI COMMAND
+# =============================================================
+
 @app.command()
 def profile(
     file: str = typer.Argument(
@@ -69,11 +113,24 @@ def profile(
     """
 
     try:
+
         # ====================================================
         # LOAD DATASET
         # ====================================================
 
         df = load_dataset(file)
+
+        # ====================================================
+        # TARGET INFERENCE
+        # ====================================================
+
+        target_was_inferred = False
+
+        if target is None:
+
+            target, target_was_inferred = infer_target(
+                df
+            )
 
         # ====================================================
         # RUN PROFILERS
@@ -101,6 +158,13 @@ def profile(
             df,
             target,
         )
+
+        # ====================================================
+        # MARK INFERRED TARGET
+        # ====================================================
+
+        if target_was_inferred:
+            target_result["inferred"] = True
 
         # ====================================================
         # COLLECT RESULTS
@@ -154,6 +218,7 @@ def profile(
         # ====================================================
 
         if html:
+
             output_path = render_html_report(
                 results,
                 output_path=output,
@@ -164,26 +229,42 @@ def profile(
             )
 
     except FileNotFoundError as error:
+
         typer.echo(
             f"Error: {error}",
             err=True,
         )
-        raise typer.Exit(code=1)
+
+        raise typer.Exit(
+            code=1
+        )
 
     except ValueError as error:
+
         typer.echo(
             f"Error: {error}",
             err=True,
         )
-        raise typer.Exit(code=1)
+
+        raise typer.Exit(
+            code=1
+        )
 
     except Exception as error:
+
         typer.echo(
             f"Unexpected error: {error}",
             err=True,
         )
-        raise typer.Exit(code=1)
 
+        raise typer.Exit(
+            code=1
+        )
+
+
+# =============================================================
+# ENTRY POINT
+# =============================================================
 
 if __name__ == "__main__":
     app()
