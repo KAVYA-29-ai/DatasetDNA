@@ -51,7 +51,6 @@ def _iter_records(value) -> list[dict]:
     """
 
     if isinstance(value, list):
-
         return [
             item
             for item in value
@@ -60,7 +59,7 @@ def _iter_records(value) -> list[dict]:
 
     if isinstance(value, dict):
 
-        # A dictionary representing one record.
+        # Dictionary representing one record.
         if all(
             not isinstance(item, (list, dict))
             for item in value.values()
@@ -72,13 +71,9 @@ def _iter_records(value) -> list[dict]:
         for item in value.values():
 
             if isinstance(item, dict):
-
-                records.append(
-                    item
-                )
+                records.append(item)
 
             elif isinstance(item, list):
-
                 records.extend(
                     record
                     for record in item
@@ -117,9 +112,7 @@ def _get_statistical_signals(
 
         signals = statistical_signals
 
-    return _iter_records(
-        signals
-    )
+    return _iter_records(signals)
 
 
 def _get_quality_findings(
@@ -140,6 +133,191 @@ def _get_quality_findings(
     )
 
 
+def _get_column_type(
+    results: dict,
+    column: str,
+) -> str | None:
+    """
+    Safely retrieve detected semantic/data type
+    for a column.
+
+    Supports both schema/type result structures
+    without making recommendations depend on a
+    single profiler representation.
+    """
+
+    # ---------------------------------------------------------
+    # Direct type result
+    # ---------------------------------------------------------
+
+    types = results.get(
+        "types",
+        {},
+    )
+
+    if isinstance(types, dict):
+
+        info = types.get(column)
+
+        if isinstance(info, dict):
+
+            detected_type = info.get(
+                "detected_type"
+            )
+
+            if detected_type:
+                return str(
+                    detected_type
+                ).lower()
+
+    # ---------------------------------------------------------
+    # Schema result
+    # ---------------------------------------------------------
+
+    schema = results.get(
+        "schema",
+        {},
+    )
+
+    if isinstance(schema, dict):
+
+        info = schema.get(column)
+
+        if isinstance(info, dict):
+
+            detected_type = (
+                info.get("detected_type")
+                or info.get("type")
+                or info.get("semantic_type")
+            )
+
+            if detected_type:
+                return str(
+                    detected_type
+                ).lower()
+
+    return None
+
+
+def _get_column_cardinality(
+    results: dict,
+    column: str,
+) -> dict:
+    """
+    Safely retrieve cardinality information.
+    """
+
+    cardinality = results.get(
+        "cardinality",
+        {},
+    )
+
+    if not isinstance(
+        cardinality,
+        dict,
+    ):
+        return {}
+
+    info = cardinality.get(
+        column,
+        {},
+    )
+
+    return (
+        info
+        if isinstance(info, dict)
+        else {}
+    )
+
+
+def _get_column_numerical_info(
+    results: dict,
+    column: str,
+) -> dict:
+    """
+    Safely retrieve numerical statistics for a column.
+    """
+
+    numerical = results.get(
+        "numerical",
+        {},
+    )
+
+    if not isinstance(
+        numerical,
+        dict,
+    ):
+        return {}
+
+    info = numerical.get(
+        column,
+        {},
+    )
+
+    return (
+        info
+        if isinstance(info, dict)
+        else {}
+    )
+
+
+def _is_numeric_column(
+    results: dict,
+    column: str,
+) -> bool:
+    """
+    Determine whether a column is numeric based on
+    DatasetDNA's detected type or numerical profiler.
+    """
+
+    detected_type = _get_column_type(
+        results,
+        column,
+    )
+
+    if detected_type in {
+        "numeric",
+        "number",
+        "float",
+        "integer",
+        "int",
+    }:
+        return True
+
+    numerical_info = (
+        _get_column_numerical_info(
+            results,
+            column,
+        )
+    )
+
+    return bool(
+        numerical_info
+    )
+
+
+def _is_categorical_column(
+    results: dict,
+    column: str,
+) -> bool:
+    """
+    Determine whether a column is categorical.
+    """
+
+    detected_type = _get_column_type(
+        results,
+        column,
+    )
+
+    return detected_type in {
+        "categorical",
+        "category",
+        "string",
+        "object",
+        "boolean",
+    }
+
+
 # =============================================================
 # MAIN RECOMMENDATION ENGINE
 # =============================================================
@@ -148,8 +326,8 @@ def generate_recommendations(
     results: dict,
 ) -> list[dict]:
     """
-    Generate deterministic, actionable recommendations
-    from DatasetDNA profiler results.
+    Generate deterministic, contextual and actionable
+    recommendations from DatasetDNA profiler results.
 
     This module does not calculate health scores.
     It only translates detected dataset issues/signals
@@ -249,24 +427,99 @@ def _add_missing_recommendations(
         if percentage < MISSING_RECOMMENDATION_THRESHOLD:
             continue
 
+        column_type = _get_column_type(
+            results,
+            column,
+        )
+
+        # -----------------------------------------------------
+        # High missingness
+        # -----------------------------------------------------
+
         if percentage >= MISSING_HIGH_THRESHOLD:
 
             severity = "high"
 
-            action = (
-                "Investigate why values are missing and "
-                "consider an appropriate imputation or "
-                "feature-removal strategy."
-            )
+            if column_type in {
+                "numeric",
+                "number",
+                "float",
+                "integer",
+                "int",
+            }:
+
+                action = (
+                    "Investigate the source of the missingness. "
+                    "Because this is a numeric feature, compare "
+                    "median/model-based imputation with feature "
+                    "removal and validate the resulting distribution."
+                )
+
+            elif column_type in {
+                "categorical",
+                "category",
+                "string",
+                "object",
+                "boolean",
+            }:
+
+                action = (
+                    "Investigate why values are missing. "
+                    "Consider an explicit missing category, "
+                    "appropriate imputation, or feature removal "
+                    "if the column has limited usable information."
+                )
+
+            else:
+
+                action = (
+                    "Investigate why values are missing and "
+                    "consider an appropriate imputation or "
+                    "feature-removal strategy."
+                )
+
+        # -----------------------------------------------------
+        # Medium missingness
+        # -----------------------------------------------------
 
         else:
 
             severity = "medium"
 
-            action = (
-                "Investigate the missingness and consider "
-                "an appropriate imputation strategy."
-            )
+            if column_type in {
+                "numeric",
+                "number",
+                "float",
+                "integer",
+                "int",
+            }:
+
+                action = (
+                    "Investigate the missingness and consider "
+                    "median or model-based imputation. Validate "
+                    "the distribution after imputation."
+                )
+
+            elif column_type in {
+                "categorical",
+                "category",
+                "string",
+                "object",
+                "boolean",
+            }:
+
+                action = (
+                    "Investigate the missingness and consider "
+                    "an explicit missing category or suitable "
+                    "categorical imputation strategy."
+                )
+
+            else:
+
+                action = (
+                    "Investigate the missingness and consider "
+                    "an appropriate imputation strategy."
+                )
 
         recommendations.append(
             {
@@ -312,22 +565,34 @@ def _add_duplicate_recommendations(
     if percentage <= DUPLICATE_RECOMMENDATION_THRESHOLD:
         return
 
+    # ---------------------------------------------------------
+    # High duplication
+    # ---------------------------------------------------------
+
     if percentage > DUPLICATE_HIGH_THRESHOLD:
 
         severity = "high"
 
         action = (
             "Investigate the source of duplication and "
-            "deduplicate records before model training."
+            "deduplicate records before model training. "
+            "Check whether repeated rows represent genuine "
+            "observations or ingestion/pipeline errors."
         )
+
+    # ---------------------------------------------------------
+    # Medium duplication
+    # ---------------------------------------------------------
 
     else:
 
         severity = "medium"
 
         action = (
-            "Review duplicate records and remove them "
-            "if they represent repeated observations."
+            "Review duplicate records and remove them if "
+            "they represent repeated observations. If duplicates "
+            "are legitimate repeated events, verify that they "
+            "should remain before training."
         )
 
     recommendations.append(
@@ -390,18 +655,28 @@ def _add_target_recommendations(
         "target",
     )
 
-    # =========================================================
-    # Target imbalance severity
-    # =========================================================
+    task_type = target.get(
+        "task_type"
+    )
+
+    # ---------------------------------------------------------
+    # High imbalance
+    # ---------------------------------------------------------
 
     if imbalance_ratio > TARGET_IMBALANCE_HIGH_THRESHOLD:
 
         severity = "high"
 
         action = (
-            "Consider class weights, resampling, or "
-            "imbalance-aware evaluation metrics."
+            "Consider class weights, carefully validated "
+            "resampling, or imbalance-aware evaluation metrics. "
+            "Use stratified splitting where appropriate and "
+            "compare performance across classes."
         )
+
+    # ---------------------------------------------------------
+    # Medium imbalance
+    # ---------------------------------------------------------
 
     else:
 
@@ -409,7 +684,24 @@ def _add_target_recommendations(
 
         action = (
             "Use stratified splitting and monitor class-aware "
-            "evaluation metrics during model training."
+            "evaluation metrics such as precision, recall, F1, "
+            "or balanced accuracy during model training."
+        )
+
+    if task_type == "classification":
+
+        message = (
+            f"Target '{column}' has an imbalance ratio "
+            f"of {imbalance_ratio:g}:1. "
+            f"{action}"
+        )
+
+    else:
+
+        message = (
+            f"Target '{column}' shows an imbalance ratio "
+            f"of {imbalance_ratio:g}:1. "
+            f"{action}"
         )
 
     recommendations.append(
@@ -417,11 +709,7 @@ def _add_target_recommendations(
             "type": "target_imbalance",
             "severity": severity,
             "column": column,
-            "message": (
-                f"Target '{column}' has an imbalance ratio "
-                f"of {imbalance_ratio:g}:1. "
-                f"{action}"
-            ),
+            "message": message,
         }
     )
 
@@ -466,6 +754,62 @@ def _add_invalid_value_recommendations(
             "value"
         )
 
+        # -----------------------------------------------------
+        # Domain-specific messages
+        # -----------------------------------------------------
+
+        message = (
+            f"{column} contains suspicious values "
+            f"with observed range {value}. "
+        )
+
+        column_name = str(
+            column
+        ).strip().lower()
+
+        if (
+            "age" in column_name
+            and (
+                column_name == "age"
+                or column_name.startswith("age_")
+                or column_name.endswith("_age")
+            )
+        ):
+
+            message += (
+                "Review records outside the expected age range "
+                "and determine whether they are data-entry errors "
+                "before training."
+            )
+
+        elif any(
+            keyword in column_name
+            for keyword in (
+                "income",
+                "salary",
+                "amount",
+                "price",
+                "cost",
+                "quantity",
+                "balance",
+            )
+        ):
+
+            message += (
+                "Because this column represents a quantity that "
+                "is normally non-negative, inspect the affected "
+                "records and determine whether they are data-entry "
+                "errors, reversals, refunds, losses, or valid domain "
+                "cases. Do not automatically replace them with zero."
+            )
+
+        else:
+
+            message += (
+                "Review and correct invalid observations "
+                "before model training."
+            )
+
         recommendations.append(
             {
                 "type": "invalid_values",
@@ -474,12 +818,7 @@ def _add_invalid_value_recommendations(
                     "high",
                 ),
                 "column": column,
-                "message": (
-                    f"{column} contains suspicious values "
-                    f"with observed range {value}. "
-                    "Review and correct invalid observations "
-                    "before model training."
-                ),
+                "message": message,
             }
         )
 
@@ -606,8 +945,10 @@ def _add_correlation_recommendations(
                 "message": (
                     f"{columns[0]} and {columns[1]} have a "
                     f"strong Pearson correlation of {value:.4f}. "
-                    "Check whether the features are redundant "
-                    "before model training."
+                    "Check whether the features are redundant, "
+                    "derived from one another, or represent the "
+                    "same underlying information before model "
+                    "training."
                 ),
             }
         )
@@ -665,7 +1006,9 @@ def _add_outlier_recommendations(
 
             action = (
                 "Investigate whether these observations are "
-                "data errors or legitimate extreme cases."
+                "data errors or legitimate extreme cases. "
+                "If valid, consider robust transformations or "
+                "models rather than automatically deleting them."
             )
 
         elif percentage > OUTLIER_MEDIUM_THRESHOLD:
@@ -673,8 +1016,9 @@ def _add_outlier_recommendations(
             severity = "medium"
 
             action = (
-                "Review the extreme observations before "
-                "deciding whether treatment is necessary."
+                "Review the extreme observations before deciding "
+                "whether treatment is necessary. Confirm whether "
+                "they are valid business observations or data errors."
             )
 
         else:
@@ -682,8 +1026,8 @@ def _add_outlier_recommendations(
             severity = "low"
 
             action = (
-                "Inspect the extreme observations and "
-                "confirm that they are valid."
+                "Inspect the extreme observations and confirm "
+                "that they are valid before applying any treatment."
             )
 
         recommendations.append(
@@ -750,9 +1094,10 @@ def _add_skewness_recommendations(
             severity = "high"
 
             action = (
-                "Consider a suitable transformation or "
-                "robust modeling approach if the skew is "
-                "problematic for the selected model."
+                "Inspect the distribution for extreme concentration "
+                "or long tails. Consider a suitable transformation "
+                "or robust modeling approach if the skew is problematic "
+                "for the selected model."
             )
 
         else:
@@ -760,8 +1105,8 @@ def _add_skewness_recommendations(
             severity = "medium"
 
             action = (
-                "Inspect the distribution and consider a "
-                "transformation if required by the model."
+                "Inspect the distribution and consider a transformation "
+                "if required by the selected model."
             )
 
         recommendations.append(
@@ -820,6 +1165,40 @@ def _add_cardinality_recommendations(
             "column",
         )
 
+        column_type = _get_column_type(
+            results,
+            column,
+        )
+
+        # -----------------------------------------------------
+        # ID-like/high-cardinality columns
+        # -----------------------------------------------------
+
+        if column_type == "id":
+
+            action = (
+                "This appears to be an identifier-like column. "
+                "Avoid one-hot encoding it as a normal categorical "
+                "feature; exclude it unless it carries meaningful "
+                "predictive information."
+            )
+
+        elif percentage >= 95:
+
+            action = (
+                "Review whether this feature behaves like an "
+                "identifier. Avoid high-dimensional one-hot encoding "
+                "unless the categories have meaningful predictive value."
+            )
+
+        else:
+
+            action = (
+                "Consider whether this categorical feature should "
+                "be encoded differently, grouped into meaningful "
+                "categories, or excluded."
+            )
+
         recommendations.append(
             {
                 "type": "cardinality",
@@ -831,8 +1210,7 @@ def _add_cardinality_recommendations(
                 "message": (
                     f"{column} has {percentage:g}% "
                     "unique values among its observations. "
-                    "Consider whether this categorical feature "
-                    "should be encoded differently or excluded."
+                    f"{action}"
                 ),
             }
         )
