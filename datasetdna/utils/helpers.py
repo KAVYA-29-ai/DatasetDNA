@@ -5,6 +5,10 @@ import os
 import pandas as pd
 
 
+# =============================================================
+# CONFIGURATION
+# =============================================================
+
 LARGE_FILE_SIZE_MB = 200
 LARGE_FILE_SIZE_BYTES = LARGE_FILE_SIZE_MB * 1024 * 1024
 LARGE_FILE_SAMPLE_SIZE = 100_000
@@ -31,6 +35,10 @@ MISSING_VALUES = [
     "UNKNOWN",
 ]
 
+
+# =============================================================
+# FILE HELPERS
+# =============================================================
 
 def get_file_size_mb(path: str) -> float:
     return round(
@@ -104,9 +112,17 @@ def detect_delimiter(
             key=lambda delimiter: first_line.count(delimiter),
         )
 
-    except Exception:
+    except Exception as error:
+        print(
+            f"Warning: delimiter detection failed for "
+            f"'{path}': {error}. Falling back to ','."
+        )
         return ","
 
+
+# =============================================================
+# MISSING VALUE NORMALIZATION
+# =============================================================
 
 def normalize_missing_values(
     df: pd.DataFrame,
@@ -131,6 +147,10 @@ def normalize_missing_values(
 
     return result
 
+
+# =============================================================
+# NUMERIC CLEANING
+# =============================================================
 
 def _clean_numeric_value(value):
     if pd.isna(value):
@@ -179,6 +199,7 @@ def clean_numeric_like_columns(
         if non_null.empty:
             continue
 
+        # Convert non-null values exactly once.
         converted = non_null.apply(
             _clean_numeric_value
         )
@@ -186,11 +207,14 @@ def clean_numeric_like_columns(
         success_rate = converted.notna().mean()
 
         # If the majority of non-null values are numeric-like,
-        # convert the whole column. Invalid values become NaN.
+        # reuse the already converted values.
         if success_rate >= threshold:
+
+            # Align converted values back to the original
+            # index. Missing values remain NaN.
             result[column] = pd.to_numeric(
-                result[column].apply(
-                    _clean_numeric_value
+                converted.reindex(
+                    series.index
                 ),
                 errors="coerce",
             )
@@ -198,12 +222,17 @@ def clean_numeric_like_columns(
     return result
 
 
+# =============================================================
+# LARGE CSV LOADING
+# =============================================================
+
 def _load_large_csv(
     path: str,
     encoding: str,
     delimiter: str,
 ) -> pd.DataFrame:
     chunks = []
+    total_rows = 0
 
     for chunk in pd.read_csv(
         path,
@@ -218,20 +247,25 @@ def _load_large_csv(
     ):
         remaining = (
             LARGE_FILE_SAMPLE_SIZE
-            - sum(len(item) for item in chunks)
+            - total_rows
         )
 
         if remaining <= 0:
             break
 
-        chunks.append(
-            chunk.head(remaining)
+        selected_chunk = chunk.head(
+            remaining
         )
 
-        if (
-            sum(len(item) for item in chunks)
-            >= LARGE_FILE_SAMPLE_SIZE
-        ):
+        chunks.append(
+            selected_chunk
+        )
+
+        total_rows += len(
+            selected_chunk
+        )
+
+        if total_rows >= LARGE_FILE_SAMPLE_SIZE:
             break
 
     if not chunks:
@@ -242,6 +276,10 @@ def _load_large_csv(
         ignore_index=True,
     )
 
+
+# =============================================================
+# DATASET LOADING
+# =============================================================
 
 def load_csv(path: str) -> pd.DataFrame:
     if not os.path.exists(path):
@@ -306,6 +344,10 @@ def load_csv(path: str) -> pd.DataFrame:
 
     return df
 
+
+# =============================================================
+# VALIDATION
+# =============================================================
 
 def validate_dataframe(
     df: pd.DataFrame,

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+
 import typer
 
 from datasetdna.profiler.overview import check_overview
@@ -22,6 +24,7 @@ from datasetdna.recommendations.recommendations import (
 )
 
 from datasetdna.reporting.console import (
+    console,
     render_report,
 )
 
@@ -30,6 +33,8 @@ from datasetdna.reporting.html import (
 )
 
 from datasetdna.utils.helpers import (
+    LARGE_FILE_SIZE_BYTES,
+    LARGE_FILE_SAMPLE_SIZE,
     load_dataset,
 )
 
@@ -81,6 +86,28 @@ def infer_target(
 
 
 # =============================================================
+# LARGE FILE WARNING
+# =============================================================
+
+def warn_if_large_file(
+    path: str,
+) -> None:
+    """
+    Warn the user when DatasetDNA will analyze a sample
+    instead of the complete dataset.
+    """
+
+    if not os.path.exists(path):
+        return
+
+    if os.path.getsize(path) > LARGE_FILE_SIZE_BYTES:
+        typer.echo(
+            f"Large file detected — analyzing a "
+            f"{LARGE_FILE_SAMPLE_SIZE:,}-row sample."
+        )
+
+
+# =============================================================
 # CLI COMMAND
 # =============================================================
 
@@ -113,6 +140,12 @@ def profile(
     """
 
     try:
+
+        # ====================================================
+        # LARGE FILE WARNING
+        # ====================================================
+
+        warn_if_large_file(file)
 
         # ====================================================
         # LOAD DATASET
@@ -165,6 +198,10 @@ def profile(
 
         if target_was_inferred:
             target_result["inferred"] = True
+
+            console.print(
+                f"[yellow]ℹ Auto-inferred '{target}' as the primary target variable.[/yellow]\n"
+            )
 
         # ====================================================
         # COLLECT RESULTS

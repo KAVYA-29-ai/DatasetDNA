@@ -2,6 +2,36 @@ from __future__ import annotations
 
 
 # =============================================================
+# CONFIGURATION
+# =============================================================
+
+# Missing-value thresholds (%)
+MISSING_RECOMMENDATION_THRESHOLD = 5
+MISSING_HIGH_THRESHOLD = 20
+
+# Duplicate-row thresholds (%)
+DUPLICATE_RECOMMENDATION_THRESHOLD = 1
+DUPLICATE_HIGH_THRESHOLD = 10
+
+# Target imbalance thresholds (ratio)
+TARGET_IMBALANCE_RECOMMENDATION_THRESHOLD = 2
+TARGET_IMBALANCE_HIGH_THRESHOLD = 5
+
+# Correlation thresholds
+CORRELATION_RECOMMENDATION_THRESHOLD = 0.7
+CORRELATION_HIGH_THRESHOLD = 0.9
+
+# Outlier thresholds (%)
+OUTLIER_RECOMMENDATION_THRESHOLD = 1
+OUTLIER_MEDIUM_THRESHOLD = 5
+OUTLIER_HIGH_THRESHOLD = 10
+
+# Skewness thresholds
+SKEWNESS_RECOMMENDATION_THRESHOLD = 1
+SKEWNESS_HIGH_THRESHOLD = 2
+
+
+# =============================================================
 # HELPERS
 # =============================================================
 
@@ -216,10 +246,10 @@ def _add_missing_recommendations(
             )
         )
 
-        if percentage < 5:
+        if percentage < MISSING_RECOMMENDATION_THRESHOLD:
             continue
 
-        if percentage >= 20:
+        if percentage >= MISSING_HIGH_THRESHOLD:
 
             severity = "high"
 
@@ -279,10 +309,10 @@ def _add_duplicate_recommendations(
         )
     )
 
-    if percentage <= 1:
+    if percentage <= DUPLICATE_RECOMMENDATION_THRESHOLD:
         return
 
-    if percentage > 10:
+    if percentage > DUPLICATE_HIGH_THRESHOLD:
 
         severity = "high"
 
@@ -349,7 +379,10 @@ def _add_target_recommendations(
         imbalance_ratio
     )
 
-    if imbalance_ratio <= 2:
+    if (
+        imbalance_ratio
+        <= TARGET_IMBALANCE_RECOMMENDATION_THRESHOLD
+    ):
         return
 
     column = target.get(
@@ -357,22 +390,17 @@ def _add_target_recommendations(
         "target",
     )
 
-    if imbalance_ratio > 10:
+    # =========================================================
+    # Target imbalance severity
+    # =========================================================
+
+    if imbalance_ratio > TARGET_IMBALANCE_HIGH_THRESHOLD:
 
         severity = "high"
 
         action = (
             "Consider class weights, resampling, or "
             "imbalance-aware evaluation metrics."
-        )
-
-    elif imbalance_ratio > 5:
-
-        severity = "high"
-
-        action = (
-            "Consider class weights or resampling and "
-            "evaluate the model with imbalance-aware metrics."
         )
 
     else:
@@ -547,7 +575,7 @@ def _add_correlation_recommendations(
             )
         )
 
-        if value < 0.7:
+        if value < CORRELATION_RECOMMENDATION_THRESHOLD:
             continue
 
         columns = signal.get(
@@ -566,7 +594,7 @@ def _add_correlation_recommendations(
 
         severity = (
             "high"
-            if value > 0.9
+            if value > CORRELATION_HIGH_THRESHOLD
             else "medium"
         )
 
@@ -623,7 +651,7 @@ def _add_outlier_recommendations(
             )
         )
 
-        if percentage <= 1:
+        if percentage <= OUTLIER_RECOMMENDATION_THRESHOLD:
             continue
 
         column = signal.get(
@@ -631,7 +659,7 @@ def _add_outlier_recommendations(
             "column",
         )
 
-        if percentage > 10:
+        if percentage > OUTLIER_HIGH_THRESHOLD:
 
             severity = "high"
 
@@ -640,7 +668,7 @@ def _add_outlier_recommendations(
                 "data errors or legitimate extreme cases."
             )
 
-        elif percentage > 5:
+        elif percentage > OUTLIER_MEDIUM_THRESHOLD:
 
             severity = "medium"
 
@@ -709,7 +737,7 @@ def _add_skewness_recommendations(
             )
         )
 
-        if value <= 1:
+        if value <= SKEWNESS_RECOMMENDATION_THRESHOLD:
             continue
 
         column = signal.get(
@@ -717,7 +745,7 @@ def _add_skewness_recommendations(
             "column",
         )
 
-        if value > 2:
+        if value > SKEWNESS_HIGH_THRESHOLD:
 
             severity = "high"
 
