@@ -4,24 +4,7 @@ import os
 
 import typer
 
-from datasetdna.profiler.overview import check_overview
-from datasetdna.profiler.schema import check_schema
-from datasetdna.profiler.missing import check_missing
-from datasetdna.profiler.duplicates import check_duplicates
-from datasetdna.profiler.cardinality import check_cardinality
-from datasetdna.profiler.numerical import check_numerical
-from datasetdna.profiler.categorical import check_categorical
-from datasetdna.profiler.outliers import check_outliers
-from datasetdna.profiler.correlations import check_correlations
-from datasetdna.profiler.target import check_target
-
-from datasetdna.scoring.health_score import (
-    calculate_health_score,
-)
-
-from datasetdna.recommendations.recommendations import (
-    generate_recommendations,
-)
+from datasetdna.engine.profiler import profile_dataframe
 
 from datasetdna.reporting.console import (
     console,
@@ -43,46 +26,6 @@ app = typer.Typer(
     help="DatasetDNA - Automated Dataset Health Profiler",
     add_completion=False,
 )
-
-
-# =============================================================
-# TARGET INFERENCE
-# =============================================================
-
-TARGET_COLUMN_CANDIDATES = (
-    "target",
-    "label",
-    "churn",
-)
-
-
-def infer_target(
-    df,
-) -> tuple[str | None, bool]:
-    """
-    Infer a target column when the user does not provide one.
-
-    Priority:
-        target -> label -> churn
-
-    Returns:
-        (column_name, inferred)
-    """
-
-    normalized_columns = {
-        column.strip().lower(): column
-        for column in df.columns
-    }
-
-    for candidate in TARGET_COLUMN_CANDIDATES:
-
-        if candidate in normalized_columns:
-            return (
-                normalized_columns[candidate],
-                True,
-            )
-
-    return None, False
 
 
 # =============================================================
@@ -141,108 +84,64 @@ def profile(
 
     try:
 
-        # ====================================================
+        # =====================================================
         # LARGE FILE WARNING
-        # ====================================================
+        # =====================================================
 
         warn_if_large_file(file)
 
-        # ====================================================
+        # =====================================================
         # LOAD DATASET
-        # ====================================================
+        # =====================================================
 
         df = load_dataset(file)
 
-        # ====================================================
-        # TARGET INFERENCE
-        # ====================================================
+        # =====================================================
+        # DATASETDNA ENGINE
+        # =====================================================
 
-        target_was_inferred = False
-
-        if target is None:
-
-            target, target_was_inferred = infer_target(
-                df
-            )
-
-        # ====================================================
-        # RUN PROFILERS
-        # ====================================================
-
-        overview = check_overview(df)
-
-        schema = check_schema(df)
-
-        missing = check_missing(df)
-
-        duplicates = check_duplicates(df)
-
-        cardinality = check_cardinality(df)
-
-        numerical = check_numerical(df)
-
-        categorical = check_categorical(df)
-
-        outliers = check_outliers(df)
-
-        correlations = check_correlations(df)
-
-        target_result = check_target(
+        results = profile_dataframe(
             df,
-            target,
+            target=target,
         )
 
-        # ====================================================
-        # MARK INFERRED TARGET
-        # ====================================================
+        # =====================================================
+        # AUTO-INFERRED TARGET MESSAGE
+        # =====================================================
 
-        if target_was_inferred:
-            target_result["inferred"] = True
+        target_result = results.get(
+            "target",
+            {},
+        )
+
+        if target_result.get("inferred"):
+            inferred_target = target_result.get(
+                "column"
+            )
 
             console.print(
-                f"[yellow]ℹ Auto-inferred '{target}' as the primary target variable.[/yellow]\n"
+                f"[yellow]ℹ Auto-inferred "
+                f"'{inferred_target}' as the primary "
+                f"target variable.[/yellow]\n"
             )
 
-        # ====================================================
-        # COLLECT RESULTS
-        # ====================================================
-
-        results = {
-            "overview": overview,
-            "schema": schema,
-            "missing": missing,
-            "duplicates": duplicates,
-            "cardinality": cardinality,
-            "numerical": numerical,
-            "categorical": categorical,
-            "outliers": outliers,
-            "correlations": correlations,
-            "target": target_result,
-        }
-
-        # ====================================================
+        # =====================================================
         # HEALTH SCORE
-        # ====================================================
+        # =====================================================
 
-        health = calculate_health_score(
-            results
-        )
+        health = results["health"]
 
-        results["health"] = health
-
-        # ====================================================
+        # =====================================================
         # RECOMMENDATIONS
-        # ====================================================
+        # =====================================================
 
-        recommendations = generate_recommendations(
-            results
-        )
+        recommendations = results[
+            "recommendations"
+        ]
 
-        results["recommendations"] = recommendations
-
-        # ====================================================
+        # =====================================================
         # CONSOLE REPORT
-        # ====================================================
+        # =====================================================
 
         render_report(
             results,
@@ -250,9 +149,9 @@ def profile(
             recommendations,
         )
 
-        # ====================================================
+        # =====================================================
         # HTML REPORT
-        # ====================================================
+        # =====================================================
 
         if html:
 
