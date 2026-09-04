@@ -495,6 +495,16 @@ def _build_target_chart(
             "</p>"
         )
 
+    # Regression targets are continuous.
+    # Class distribution / class imbalance does not apply.
+    if target.get("task_type") == "regression":
+        return (
+            '<p class="empty">'
+            "Target is continuous (regression) — "
+            "class distribution not applicable."
+            "</p>"
+        )
+
     distribution = target.get(
         "class_distribution",
         {},
