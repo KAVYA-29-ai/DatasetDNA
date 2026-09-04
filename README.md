@@ -5,8 +5,8 @@
 [![PyPI](https://img.shields.io/pypi/v/datasetdna?logo=pypi)](https://pypi.org/project/datasetdna/)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-blue?logo=python)](https://www.python.org/)
 [![License](https://img.shields.io/github/license/KAVYA-29-ai/DatasetDNA)](https://github.com/KAVYA-29-ai/DatasetDNA/blob/main/LICENSE)
-[![Tests](https://img.shields.io/badge/tests-124%20passed-success)](https://github.com/KAVYA-29-ai/DatasetDNA)
-[![Release](https://img.shields.io/badge/release-1.0.0-success)](https://pypi.org/project/datasetdna/1.0.0/)
+[![Tests](https://img.shields.io/badge/tests-137%20passed-success)](https://github.com/KAVYA-29-ai/DatasetDNA)
+[![Release](https://img.shields.io/badge/release-1.1.0-success)](https://pypi.org/project/datasetdna/1.1.0/)
 
 DatasetDNA is an automated dataset health profiler for machine learning. It analyzes your CSV, detects real data-quality problems, separates them from statistical signals, identifies targets, calculates a **0–100 health score**, and provides actionable recommendations.
 
@@ -81,6 +81,12 @@ Strong numerical relationships using Pearson correlation.
 ### 🎯 Target Analysis
 Classification and regression detection, class counts, distributions, and imbalance ratios for classification.
 
+### 🧩 Mixed-Type Detection
+Identifies columns containing multiple underlying Python value types, such as numbers mixed with strings.
+
+### 🏷️ Category Consistency
+Detects multiple representations of the same category, such as `Male`, `male`, and `M`.
+
 </details>
 
 ---
@@ -131,6 +137,8 @@ Every dataset receives a **0–100 Health Score**.
 - Skewness
 - Cardinality
 - Statistical outliers
+
+Mixed-type and category-consistency findings are surfaced as recommendations and do not directly penalize the health score.
 
 The score focuses on genuine data-quality concerns rather than penalizing valid statistical structure.
 
@@ -204,6 +212,8 @@ Use stratified splitting and monitor
 class-aware evaluation metrics.
 ```
 
+Recommendations also flag mixed Python value types and inconsistent categorical representations so they can be standardized before model training.
+
 Recommendations guide investigation rather than blindly applying one universal fix.
 
 </details>
@@ -257,6 +267,8 @@ The result contains:
 ```text
 overview
 schema
+mixed_types
+category_consistency
 missing
 duplicates
 cardinality
@@ -286,12 +298,14 @@ The CLI and Python API use the same underlying profiling engine.
                               ▼
                        Profiling Engine
                               │
-              ┌───────────────┼───────────────┐
-              ▼               ▼               ▼
+              ┌───────────────┼────────────────┐
+              ▼               ▼                ▼
           Profilers      Health Score    Recommendations
               │
               ├── Overview
               ├── Schema
+              ├── Mixed Types
+              ├── Category Consistency
               ├── Missing
               ├── Duplicates
               ├── Cardinality
@@ -315,6 +329,12 @@ The CLI and Python API use the same underlying profiling engine.
 pip install datasetdna
 ```
 
+To install the current published release explicitly:
+
+```bash
+pip install datasetdna==1.1.0
+```
+
 ### From Source
 
 ```bash
@@ -329,10 +349,10 @@ Requires **Python 3.10+**.
 
 ## 🧪 Testing
 
-Automated coverage includes profilers, semantic types, target detection, health scoring, recommendations, CLI behavior, HTML reporting, Python API behavior, and edge cases.
+Automated coverage includes profilers, semantic types, target detection, health scoring, recommendations, CLI behavior, HTML reporting, Python API behavior, mixed-type detection, category consistency, and edge cases.
 
 ```text
-124 tests passed
+137 tests passed
 ```
 
 Run the suite:
@@ -354,6 +374,8 @@ Most ML failures aren't model failures. They're data failures:
 ❌ Impossible values
 ❌ ID columns treated as features
 ❌ Severe target imbalance
+❌ Mixed Python value types
+❌ Inconsistent category representations
 ❌ Statistical patterns mistaken for data problems
 ```
 
@@ -395,18 +417,22 @@ Raw Dataset
 - [x] Automatic target detection
 - [x] Large-file handling
 - [x] Deeper test coverage
+- [x] Mixed-type detection
+- [x] Category consistency detection
 
 ### ✅ Phase 3 — HTML Dashboard
 - [x] Interactive Plotly charts
 - [x] Exportable HTML reports
 - [x] Dataset health visualization
 - [x] Target visualization
+- [x] Category consistency section
 
 ### ✅ Phase 4 — Public Release
 - [x] PyPI package
 - [x] CLI
 - [x] Python API
 - [x] Stable `1.0.0` release
+- [x] `1.1.0` release
 
 ### 🔮 Phase 5 — Ecosystem
 - [ ] Expanded integrations
