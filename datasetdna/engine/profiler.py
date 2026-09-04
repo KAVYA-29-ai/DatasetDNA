@@ -4,6 +4,10 @@ import pandas as pd
 
 from datasetdna.profiler.overview import check_overview
 from datasetdna.profiler.schema import check_schema
+from datasetdna.profiler.mixed_types import check_mixed_types
+from datasetdna.profiler.category_consistency import (
+    check_category_consistency,
+)
 from datasetdna.profiler.missing import check_missing
 from datasetdna.profiler.duplicates import check_duplicates
 from datasetdna.profiler.cardinality import check_cardinality
@@ -78,6 +82,8 @@ def profile_dataframe(
 
     overview = check_overview(df)
     schema = check_schema(df)
+    mixed_types = check_mixed_types(df)
+    category_consistency = check_category_consistency(df)
     missing = check_missing(df)
     duplicates = check_duplicates(df)
     cardinality = check_cardinality(df)
@@ -97,6 +103,8 @@ def profile_dataframe(
     results = {
         "overview": overview,
         "schema": schema,
+        "mixed_types": mixed_types,
+        "category_consistency": category_consistency,
         "missing": missing,
         "duplicates": duplicates,
         "cardinality": cardinality,

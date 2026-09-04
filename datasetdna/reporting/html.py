@@ -619,6 +619,11 @@ def render_html_report(
         {},
     )
 
+    category_consistency = results.get(
+        "category_consistency",
+        {},
+    )
+
     numerical = results.get(
         "numerical",
         {},
@@ -776,6 +781,131 @@ def render_html_report(
             </td>
 
         </tr>
+        """
+
+    # ========================================================
+    # CATEGORY CONSISTENCY
+    # ========================================================
+
+    category_consistency_rows = ""
+
+    for column, info in category_consistency.items():
+
+        if not isinstance(
+            info,
+            dict,
+        ):
+            continue
+
+        groups = info.get(
+            "groups",
+            {},
+        )
+
+        if not isinstance(
+            groups,
+            dict,
+        ):
+            continue
+
+        for canonical, values in groups.items():
+
+            if not isinstance(
+                values,
+                (list, tuple, set),
+            ):
+                continue
+
+            representations = ", ".join(
+                _escape(value)
+                for value in values
+            )
+
+            category_consistency_rows += f"""
+            <tr>
+
+                <td>
+                    <strong>
+                        {_escape(column)}
+                    </strong>
+                </td>
+
+                <td>
+                    <span class="type-badge">
+                        {_escape(canonical)}
+                    </span>
+                </td>
+
+                <td>
+                    {representations}
+                </td>
+
+            </tr>
+            """
+
+    if category_consistency_rows:
+
+        category_consistency_content = f"""
+        <div class="table-wrapper">
+
+            <table>
+
+                <thead>
+
+                    <tr>
+                        <th>Column</th>
+                        <th>Canonical Category</th>
+                        <th>Representations</th>
+                    </tr>
+
+                </thead>
+
+                <tbody>
+
+                    {category_consistency_rows}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+        <div
+            class="issue-card severity-medium"
+            style="margin-top: 18px;"
+        >
+
+            <div class="issue-severity">
+                MEDIUM
+            </div>
+
+            <div class="issue-message">
+                Multiple representations of the same
+                category were detected. Standardize
+                categorical values before model training.
+            </div>
+
+        </div>
+        """
+
+    else:
+
+        category_consistency_content = """
+        <div class="empty-state">
+
+            <div class="empty-icon">
+                ✓
+            </div>
+
+            <strong>
+                No categorical representation inconsistencies detected
+            </strong>
+
+            <span>
+                Categorical values appear consistently represented.
+            </span>
+
+        </div>
         """
 
     # ========================================================
@@ -1975,6 +2105,30 @@ def render_html_report(
             </table>
 
         </div>
+
+    </section>
+
+
+    <!-- ====================================================
+         CATEGORY CONSISTENCY
+         ==================================================== -->
+
+    <section class="card section">
+
+        <div class="section-header">
+
+            <h2 class="section-title">
+                🏷️ Category Consistency
+            </h2>
+
+            <p class="section-description">
+                Detects multiple representations of the same
+                categorical value.
+            </p>
+
+        </div>
+
+        {category_consistency_content}
 
     </section>
 

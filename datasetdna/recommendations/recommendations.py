@@ -30,6 +30,9 @@ OUTLIER_HIGH_THRESHOLD = 10
 SKEWNESS_RECOMMENDATION_THRESHOLD = 1
 SKEWNESS_HIGH_THRESHOLD = 2
 
+# Mixed-type threshold
+MIXED_TYPES_RECOMMENDATION_THRESHOLD = 2
+
 
 # =============================================================
 # HELPERS
@@ -381,6 +384,16 @@ def generate_recommendations(
         recommendations,
     )
 
+    _add_mixed_type_recommendations(
+        results,
+        recommendations,
+    )
+
+    _add_category_consistency_recommendations(
+        results,
+        recommendations,
+    )
+
     return recommendations
 
 
@@ -432,10 +445,6 @@ def _add_missing_recommendations(
             column,
         )
 
-        # -----------------------------------------------------
-        # High missingness
-        # -----------------------------------------------------
-
         if percentage >= MISSING_HIGH_THRESHOLD:
 
             severity = "high"
@@ -477,10 +486,6 @@ def _add_missing_recommendations(
                     "consider an appropriate imputation or "
                     "feature-removal strategy."
                 )
-
-        # -----------------------------------------------------
-        # Medium missingness
-        # -----------------------------------------------------
 
         else:
 
@@ -565,10 +570,6 @@ def _add_duplicate_recommendations(
     if percentage <= DUPLICATE_RECOMMENDATION_THRESHOLD:
         return
 
-    # ---------------------------------------------------------
-    # High duplication
-    # ---------------------------------------------------------
-
     if percentage > DUPLICATE_HIGH_THRESHOLD:
 
         severity = "high"
@@ -579,10 +580,6 @@ def _add_duplicate_recommendations(
             "Check whether repeated rows represent genuine "
             "observations or ingestion/pipeline errors."
         )
-
-    # ---------------------------------------------------------
-    # Medium duplication
-    # ---------------------------------------------------------
 
     else:
 
@@ -659,10 +656,6 @@ def _add_target_recommendations(
         "task_type"
     )
 
-    # ---------------------------------------------------------
-    # High imbalance
-    # ---------------------------------------------------------
-
     if imbalance_ratio > TARGET_IMBALANCE_HIGH_THRESHOLD:
 
         severity = "high"
@@ -673,10 +666,6 @@ def _add_target_recommendations(
             "Use stratified splitting where appropriate and "
             "compare performance across classes."
         )
-
-    # ---------------------------------------------------------
-    # Medium imbalance
-    # ---------------------------------------------------------
 
     else:
 
@@ -753,10 +742,6 @@ def _add_invalid_value_recommendations(
         value = finding.get(
             "value"
         )
-
-        # -----------------------------------------------------
-        # Domain-specific messages
-        # -----------------------------------------------------
 
         message = (
             f"{column} contains suspicious values "
@@ -1170,10 +1155,6 @@ def _add_cardinality_recommendations(
             column,
         )
 
-        # -----------------------------------------------------
-        # ID-like/high-cardinality columns
-        # -----------------------------------------------------
-
         if column_type == "id":
 
             action = (
@@ -1212,5 +1193,172 @@ def _add_cardinality_recommendations(
                     "unique values among its observations. "
                     f"{action}"
                 ),
+            }
+        )
+
+
+# =============================================================
+# MIXED TYPES
+# =============================================================
+
+def _add_mixed_type_recommendations(
+    results: dict,
+    recommendations: list[dict],
+) -> None:
+    """
+    Generate recommendations for columns containing
+    multiple Python value types.
+    """
+
+    mixed_types = results.get(
+        "mixed_types",
+        {},
+    )
+
+    if not isinstance(
+        mixed_types,
+        dict,
+    ):
+        return
+
+    for column, info in mixed_types.items():
+
+        if not isinstance(
+            info,
+            dict,
+        ):
+            continue
+
+        types = info.get(
+            "types",
+            {},
+        )
+
+        if not isinstance(
+            types,
+            dict,
+        ):
+            continue
+
+        if len(types) < MIXED_TYPES_RECOMMENDATION_THRESHOLD:
+            continue
+
+        type_names = ", ".join(
+            str(type_name)
+            for type_name in types.keys()
+        )
+
+        recommendations.append(
+            {
+                "type": "mixed_types",
+                "severity": "medium",
+                "column": column,
+                "message": (
+                    f"Column '{column}' contains mixed data "
+                    f"types ({type_names}). Standardize the "
+                    "values before model training."
+                ),
+                "value": type_names,
+            }
+        )
+
+
+# =============================================================
+# CATEGORY CONSISTENCY
+# =============================================================
+
+def _add_category_consistency_recommendations(
+    results: dict,
+    recommendations: list[dict],
+) -> None:
+    """
+    Generate recommendations for categorical columns
+    containing multiple representations of the same category.
+
+    Example:
+
+        Male / male / M
+        Female / female / F
+        Yes / yes / Y / True
+
+    This is a normalization recommendation only.
+    It does not affect the health score.
+    """
+
+    category_consistency = results.get(
+        "category_consistency",
+        {},
+    )
+
+    if not isinstance(
+        category_consistency,
+        dict,
+    ):
+        return
+
+    for column, info in category_consistency.items():
+
+        if not isinstance(
+            info,
+            dict,
+        ):
+            continue
+
+        groups = info.get(
+            "groups",
+            {},
+        )
+
+        if not isinstance(
+            groups,
+            dict,
+        ):
+            continue
+
+        if not groups:
+            continue
+
+        inconsistent_groups = []
+
+        for canonical, values in groups.items():
+
+            if not isinstance(
+                values,
+                (list, tuple, set),
+            ):
+                continue
+
+            if len(values) < 2:
+                continue
+
+            formatted_values = ", ".join(
+                str(value)
+                for value in values
+            )
+
+            inconsistent_groups.append(
+                f"{canonical}: {formatted_values}"
+            )
+
+        if not inconsistent_groups:
+            continue
+
+        group_text = "; ".join(
+            inconsistent_groups
+        )
+
+        recommendations.append(
+            {
+                "type": "category_consistency",
+                "severity": "medium",
+                "column": column,
+                "message": (
+                    f"Column '{column}' contains multiple "
+                    "representations of the same category. "
+                    f"Detected groups: {group_text}. "
+                    "Standardize categorical values before "
+                    "model training."
+                ),
+                "value": group_text,
             }
         )

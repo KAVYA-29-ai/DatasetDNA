@@ -1,3 +1,6 @@
+import pandas as pd
+
+from datasetdna.engine.profiler import profile_dataframe
 from datasetdna.recommendations.recommendations import (
     generate_recommendations,
 )
@@ -250,3 +253,58 @@ def test_multiple_recommendations():
     recommendations = generate_recommendations(results)
 
     assert len(recommendations) == 3
+def test_mixed_type_recommendation():
+    results = {
+        "mixed_types": {
+            "age": {
+                "types": {
+                    "int": 3,
+                    "str": 1,
+                },
+                "type_count": 2,
+            }
+        }
+    }
+
+    recommendations = generate_recommendations(results)
+
+    assert len(recommendations) == 1
+
+    recommendation = recommendations[0]
+
+    assert recommendation["type"] == "mixed_types"
+    assert recommendation["severity"] == "medium"
+    assert recommendation["column"] == "age"
+    assert recommendation["value"] == "int, str"
+    assert "Standardize the values" in recommendation["message"]
+
+def test_category_consistency_recommendation():
+    df = pd.DataFrame(
+        {
+            "gender": [
+                "Male",
+                "male",
+                "M",
+                "Female",
+                "female",
+                "F",
+            ]
+        }
+    )
+
+    results = profile_dataframe(df)
+
+    recommendations = results["recommendations"]
+
+    category_recommendations = [
+        recommendation
+        for recommendation in recommendations
+        if recommendation["type"] == "category_consistency"
+    ]
+
+    assert len(category_recommendations) == 1
+    assert category_recommendations[0]["column"] == "gender"
+    assert category_recommendations[0]["severity"] == "medium"
+    assert "Male" in category_recommendations[0]["message"]
+    assert "male" in category_recommendations[0]["message"]
+    assert "M" in category_recommendations[0]["message"]

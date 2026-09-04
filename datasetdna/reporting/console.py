@@ -364,6 +364,110 @@ def _format_signal_details(
 
 
 # =============================================================
+# CATEGORY CONSISTENCY
+# =============================================================
+
+def render_category_consistency(
+    category_consistency: dict[str, Any],
+) -> None:
+    """
+    Display categorical columns containing multiple
+    representations of the same category.
+
+    Example:
+
+        Male / male / M
+        Female / female / F
+    """
+
+    console.print()
+
+    if not category_consistency:
+
+        console.print(
+            Panel(
+                "[bold green]"
+                "✓ No categorical representation "
+                "inconsistencies detected."
+                "[/bold green]",
+                title="🏷 CATEGORY CONSISTENCY",
+                border_style="green",
+            )
+        )
+
+        return
+
+    table = Table(
+        title="🏷 CATEGORY CONSISTENCY",
+        show_header=True,
+        header_style="bold yellow",
+        expand=False,
+    )
+
+    table.add_column(
+        "Column",
+        no_wrap=True,
+    )
+
+    table.add_column(
+        "Canonical Category",
+        no_wrap=True,
+    )
+
+    table.add_column(
+        "Representations",
+    )
+
+    for column, info in category_consistency.items():
+
+        if not isinstance(
+            info,
+            dict,
+        ):
+            continue
+
+        groups = info.get(
+            "groups",
+            {},
+        )
+
+        if not isinstance(
+            groups,
+            dict,
+        ):
+            continue
+
+        for canonical, values in groups.items():
+
+            if not isinstance(
+                values,
+                (list, tuple, set),
+            ):
+                continue
+
+            table.add_row(
+                str(column),
+                str(canonical),
+                ", ".join(
+                    str(value)
+                    for value in values
+                ),
+            )
+
+    console.print(table)
+
+    console.print(
+        Panel(
+            "[yellow]⚠[/yellow] "
+            "Multiple representations of the same "
+            "category were detected. Standardize "
+            "categorical values before model training.",
+            border_style="yellow",
+        )
+    )
+
+
+# =============================================================
 # RECOMMENDATIONS
 # =============================================================
 
@@ -1021,6 +1125,13 @@ def render_report(
 
     render_categorical(
         results["categorical"]
+    )
+
+    render_category_consistency(
+        results.get(
+            "category_consistency",
+            {},
+        )
     )
 
     render_outliers(

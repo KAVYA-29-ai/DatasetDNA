@@ -8,7 +8,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "datasetdna"
-version = "1.0.0"
+version = "1.1.0"
 description = "One-command dataset profiling and health analysis"
 readme = "README.md"
 requires-python = ">=3.10"
